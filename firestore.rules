@@ -1,0 +1,255 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Global Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    // Validation Blueprint: UserProfile
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'locationContext', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'locationContext', 'createdAt', 'updatedAt'])
+        && data.uid is string
+        && data.uid == userId
+        && isValidId(data.uid)
+        && data.locationContext is string
+        && data.locationContext.size() <= 120
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: ResearchItem
+    function isValidResearchItem(data, userId, itemId) {
+      return data.keys().hasAll([
+          'id', 'userId', 'title', 'userPrompt', 'category', 'completed',
+          'personalNotes', 'researchStatus', 'researchError', 'locationUsed',
+          'summary', 'keyFindings', 'comparisonColumns', 'comparisonRows',
+          'actionSteps', 'sources', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'userId', 'title', 'userPrompt', 'category', 'completed',
+          'personalNotes', 'researchStatus', 'researchError', 'locationUsed',
+          'summary', 'keyFindings', 'comparisonColumns', 'comparisonRows',
+          'actionSteps', 'sources', 'createdAt', 'updatedAt', 'researchedAt'
+        ])
+        && data.id is string
+        && data.id == itemId
+        && isValidId(data.id)
+        && data.userId is string
+        && data.userId == userId
+        && isValidId(data.userId)
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 240
+        && data.userPrompt is string
+        && data.userPrompt.size() <= 1200
+        && data.category in ['comparison', 'shopping', 'reading', 'finance', 'general']
+        && data.completed is bool
+        && data.personalNotes is string
+        && data.personalNotes.size() <= 15000
+        && data.researchStatus in ['idle', 'researching', 'ready', 'error']
+        && data.researchError is string
+        && data.researchError.size() <= 500
+        && data.locationUsed is string
+        && data.locationUsed.size() <= 120
+        && data.summary is string
+        && data.summary.size() <= 4000
+        && data.keyFindings is list
+        && data.keyFindings.size() <= 12
+        && (data.keyFindings.size() == 0 || (data.keyFindings[0] is string && data.keyFindings[0].size() <= 500))
+        && data.comparisonColumns is list
+        && data.comparisonColumns.size() <= 6
+        && (data.comparisonColumns.size() == 0 || (data.comparisonColumns[0] is string && data.comparisonColumns[0].size() <= 80))
+        && data.comparisonRows is list
+        && data.comparisonRows.size() <= 15
+        && (data.comparisonRows.size() == 0 || (
+          data.comparisonRows[0] is map
+          && data.comparisonRows[0].keys().hasAll(['label', 'values'])
+          && data.comparisonRows[0].keys().hasOnly(['label', 'values'])
+          && data.comparisonRows[0].label is string
+          && data.comparisonRows[0].label.size() <= 120
+          && data.comparisonRows[0].values is list
+          && data.comparisonRows[0].values.size() <= 6
+          && (data.comparisonRows[0].values.size() == 0 || (data.comparisonRows[0].values[0] is string && data.comparisonRows[0].values[0].size() <= 200))
+        ))
+        && data.actionSteps is list
+        && data.actionSteps.size() <= 10
+        && (data.actionSteps.size() == 0 || (
+          data.actionSteps[0] is map
+          && data.actionSteps[0].keys().hasAll(['id', 'text', 'done'])
+          && data.actionSteps[0].keys().hasOnly(['id', 'text', 'done'])
+          && data.actionSteps[0].id is string
+          && data.actionSteps[0].id.size() <= 64
+          && data.actionSteps[0].text is string
+          && data.actionSteps[0].text.size() <= 300
+          && data.actionSteps[0].done is bool
+        ))
+        && data.sources is list
+        && data.sources.size() <= 12
+        && (data.sources.size() == 0 || (
+          data.sources[0] is map
+          && data.sources[0].keys().hasAll(['title', 'uri'])
+          && data.sources[0].keys().hasOnly(['title', 'uri'])
+          && data.sources[0].title is string
+          && data.sources[0].title.size() <= 200
+          && data.sources[0].uri is string
+          && data.sources[0].uri.size() <= 1000
+        ))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (!('researchedAt' in data) || data.researchedAt is timestamp);
+    }
+
+    // Validation Blueprint: ResearchFollowup
+    function isValidFollowup(data, userId, itemId, followupId) {
+      return data.keys().hasAll(['id', 'userId', 'itemId', 'question', 'answer', 'sources', 'createdAt'])
+        && data.keys().hasOnly(['id', 'userId', 'itemId', 'question', 'answer', 'sources', 'createdAt'])
+        && data.id is string
+        && data.id == followupId
+        && isValidId(data.id)
+        && data.userId is string
+        && data.userId == userId
+        && isValidId(data.userId)
+        && data.itemId is string
+        && data.itemId == itemId
+        && isValidId(data.itemId)
+        && data.question is string
+        && data.question.size() >= 1
+        && data.question.size() <= 1000
+        && data.answer is string
+        && data.answer.size() >= 1
+        && data.answer.size() <= 8000
+        && data.sources is list
+        && data.sources.size() <= 10
+        && (data.sources.size() == 0 || (
+          data.sources[0] is map
+          && data.sources[0].keys().hasAll(['title', 'uri'])
+          && data.sources[0].keys().hasOnly(['title', 'uri'])
+          && data.sources[0].title is string
+          && data.sources[0].title.size() <= 200
+          && data.sources[0].uri is string
+          && data.sources[0].uri.size() <= 1000
+        ))
+        && data.createdAt is timestamp;
+    }
+
+    // Collection: /users/{userId}
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId) && (resource == null || existing().uid == request.auth.uid);
+      allow create: if isOwner(userId)
+        && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isOwner(userId)
+        && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['locationContext', 'updatedAt']);
+      allow delete: if isOwner(userId) && isValidId(userId) && existing().uid == request.auth.uid;
+
+      // Collection: /users/{userId}/items/{itemId}
+      match /items/{itemId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(itemId) && (resource == null || existing().userId == request.auth.uid);
+        allow list: if isOwner(userId) && resource.data.userId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(itemId)
+          && isValidResearchItem(incoming(), userId, itemId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(itemId)
+          && isValidResearchItem(incoming(), userId, itemId)
+          && incoming().id == existing().id
+          && incoming().userId == existing().userId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            // Action: Toggle task completion
+            incoming().diff(existing()).affectedKeys().hasOnly(['completed', 'updatedAt'])
+            ||
+            // Action: Toggle action checklist step
+            incoming().diff(existing()).affectedKeys().hasOnly(['actionSteps', 'updatedAt'])
+            ||
+            // Action: Update personal scratchpad notes
+            incoming().diff(existing()).affectedKeys().hasOnly(['personalNotes', 'updatedAt'])
+            ||
+            // Action: Update item title, prompt, or category
+            incoming().diff(existing()).affectedKeys().hasOnly(['title', 'userPrompt', 'category', 'updatedAt'])
+            ||
+            // Action: Update research status/error before or during run
+            incoming().diff(existing()).affectedKeys().hasOnly(['researchStatus', 'researchError', 'updatedAt'])
+            ||
+            // Action: Save synthesized research results
+            (
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'category', 'researchStatus', 'researchError', 'locationUsed',
+                'summary', 'keyFindings', 'comparisonColumns', 'comparisonRows',
+                'actionSteps', 'sources', 'researchedAt', 'updatedAt'
+              ])
+              && (!('researchedAt' in incoming()) || incoming().researchedAt == request.time)
+            )
+          );
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(itemId) && existing().userId == request.auth.uid;
+
+        // Subcollection: /users/{userId}/items/{itemId}/followups/{followupId}
+        match /followups/{followupId} {
+          allow get: if isOwner(userId)
+            && isValidId(userId)
+            && isValidId(itemId)
+            && isValidId(followupId)
+            && (resource == null || (existing().userId == request.auth.uid && existing().itemId == itemId))
+            && exists(/databases/$(database)/documents/users/$(userId)/items/$(itemId))
+            && get(/databases/$(database)/documents/users/$(userId)/items/$(itemId)).data.userId == request.auth.uid;
+          allow list: if isOwner(userId)
+            && resource.data.userId == request.auth.uid
+            && resource.data.itemId == itemId;
+          allow create: if isOwner(userId)
+            && isValidId(userId)
+            && isValidId(itemId)
+            && isValidId(followupId)
+            && isValidFollowup(incoming(), userId, itemId, followupId)
+            && incoming().createdAt == request.time
+            && exists(/databases/$(database)/documents/users/$(userId)/items/$(itemId))
+            && get(/databases/$(database)/documents/users/$(userId)/items/$(itemId)).data.userId == request.auth.uid;
+          allow delete: if isOwner(userId)
+            && isValidId(userId)
+            && isValidId(itemId)
+            && isValidId(followupId)
+            && existing().userId == request.auth.uid
+            && existing().itemId == itemId;
+        }
+      }
+    }
+  }
+}

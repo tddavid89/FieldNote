@@ -1,0 +1,219 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User workspace preferences including default local research location.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128,
+          "description": "Firebase Auth UID of the user."
+        },
+        "locationContext": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "City, state, or ZIP code used for local library and inventory research."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": ["uid", "locationContext", "createdAt", "updatedAt"]
+    },
+    "ResearchItem": {
+      "title": "ResearchItem",
+      "description": "A note or to-do item enriched with grounded background research.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128,
+          "description": "Unique document ID."
+        },
+        "userId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128,
+          "description": "Owner Firebase Auth UID."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "description": "Primary note or to-do headline."
+        },
+        "userPrompt": {
+          "type": "string",
+          "maxLength": 1200,
+          "description": "Detailed research prompt or task context."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["comparison", "shopping", "reading", "finance", "general"],
+          "description": "Item category."
+        },
+        "completed": {
+          "type": "boolean",
+          "description": "Whether the to-do item is marked done."
+        },
+        "personalNotes": {
+          "type": "string",
+          "maxLength": 15000,
+          "description": "User-authored scratchpad notes."
+        },
+        "researchStatus": {
+          "type": "string",
+          "enum": ["idle", "researching", "ready", "error"],
+          "description": "Current research brief state."
+        },
+        "researchError": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Error message if research failed."
+        },
+        "locationUsed": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Location context applied during research."
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 4000,
+          "description": "Executive summary of research findings."
+        },
+        "keyFindings": {
+          "type": "array",
+          "description": "Bounded list of up to 12 concise research bullet points."
+        },
+        "comparisonColumns": {
+          "type": "array",
+          "description": "Bounded list of up to 6 table column headers."
+        },
+        "comparisonRows": {
+          "type": "array",
+          "description": "Bounded list of up to 15 comparison row objects."
+        },
+        "actionSteps": {
+          "type": "array",
+          "description": "Bounded list of up to 10 actionable next-step objects."
+        },
+        "sources": {
+          "type": "array",
+          "description": "Bounded list of up to 12 grounded web source objects."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        },
+        "researchedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the latest completed research run."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "title",
+        "userPrompt",
+        "category",
+        "completed",
+        "personalNotes",
+        "researchStatus",
+        "researchError",
+        "locationUsed",
+        "summary",
+        "keyFindings",
+        "comparisonColumns",
+        "comparisonRows",
+        "actionSteps",
+        "sources",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ResearchFollowup": {
+      "title": "ResearchFollowup",
+      "description": "A follow-up question and grounded answer attached to a research item.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128,
+          "description": "Unique followup ID."
+        },
+        "userId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128,
+          "description": "Owner Firebase Auth UID."
+        },
+        "itemId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128,
+          "description": "Parent ResearchItem ID."
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "Follow-up question asked by the user."
+        },
+        "answer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000,
+          "description": "Grounded answer returned by the research assistant."
+        },
+        "sources": {
+          "type": "array",
+          "description": "Bounded list of up to 10 grounded web sources."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        }
+      },
+      "required": ["id", "userId", "itemId", "question", "answer", "sources", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Per-user workspace settings and default location context."
+    },
+    "/users/{userId}/items/{itemId}": {
+      "schema": {
+        "$ref": "#/entities/ResearchItem"
+      },
+      "description": "User's notes, to-dos, and synthesized background research dossiers."
+    },
+    "/users/{userId}/items/{itemId}/followups/{followupId}": {
+      "schema": {
+        "$ref": "#/entities/ResearchFollowup"
+      },
+      "description": "Follow-up Q&A entries belonging to a specific research item."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Fieldnote",
+  "description": "A personal notes and to-do companion that builds grounded background research briefs for every item on your list.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
